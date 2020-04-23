@@ -94,7 +94,7 @@ def send_request(batch: list, logger: logging.Logger, token: str, base_url: str 
         for item in response_data['errors']:
             msg = f'{item["error"]} - {item["description"]}'
             if 'index' in item:
-                msg += ' - Failed sample: ' + json.dumps(batch[item['index']])
+                msg += ' - Failed sample: ' + json.dumps(batch[int(item['index'])])
             logger.error(msg)
     except requests.HTTPError as e:
         logger.exception(e)
