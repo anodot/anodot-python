@@ -68,7 +68,7 @@ class Metric:
         self.what = replace_illegal_chars(str(what))
         self.value = float(value)
         self.target_type = TargetType(target_type).value
-        self.timestamp = time.mktime(timestamp.timetuple())
+        self.timestamp = timestamp.timestamp()
         self.ver = int(version)
         self.dimensions = process_dimensions(dimensions)
         self.tags = process_tags(tags)
