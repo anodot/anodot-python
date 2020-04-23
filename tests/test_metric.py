@@ -56,4 +56,4 @@ def test_send_request(monkeypatch):
         return MockResponse()
 
     monkeypatch.setattr(requests, 'post', mock_post)
-    metric.send_request([{}, {}], metric.get_default_logger(), 'token1234', 'https://app.anodot.com')
+    metric.send_request([{}, {}], metric.default_logger, 'token1234', 'https://app.anodot.com')
