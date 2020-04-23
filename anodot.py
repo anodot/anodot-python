@@ -2,8 +2,10 @@ import json
 import logging
 import requests
 import sys
+import time
 import urllib.parse
 
+from datetime import datetime
 from enum import Enum
 from typing import Iterable
 
@@ -40,7 +42,7 @@ class Metric:
     def __init__(self, what: str,
                  value,
                  target_type: TargetType,
-                 timestamp: int,
+                 timestamp: datetime,
                  dimensions: dict = None,
                  tags: dict = None,
                  version: int = 1):
@@ -49,12 +51,15 @@ class Metric:
             self.what = replace_illegal_chars(str(what))
             self.value = float(value)
             self.target_type = TargetType(target_type).value
-            self.timestamp = int(timestamp)
             self.ver = int(version)
             self.dimensions = process_dimensions(dimensions)
             self.tags = process_tags(tags)
         except ValueError as e:
             raise EventConstructException(e)
+
+        if type(timestamp) is not datetime:
+            raise EventConstructException('timestamp should be an instance of datetime')
+        self.timestamp = time.mktime(timestamp.timetuple())
 
     def to_dict(self):
         event = {
