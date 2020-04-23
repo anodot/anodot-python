@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Iterable
 
 BATCH_SIZE = 1000
+MAX_BATCH_DEBUG_OUTPUT = 10
 
 
 def replace_illegal_chars(user_string: str):
@@ -47,19 +48,13 @@ class Metric:
                  tags: dict = None,
                  version: int = 1):
 
-        try:
-            self.what = replace_illegal_chars(str(what))
-            self.value = float(value)
-            self.target_type = TargetType(target_type).value
-            self.ver = int(version)
-            self.dimensions = process_dimensions(dimensions)
-            self.tags = process_tags(tags)
-        except ValueError as e:
-            raise EventConstructException(e)
-
-        if type(timestamp) is not datetime:
-            raise EventConstructException('timestamp should be an instance of datetime')
+        self.what = replace_illegal_chars(str(what))
+        self.value = float(value)
+        self.target_type = TargetType(target_type).value
         self.timestamp = time.mktime(timestamp.timetuple())
+        self.ver = int(version)
+        self.dimensions = process_dimensions(dimensions)
+        self.tags = process_tags(tags)
 
     def to_dict(self):
         event = {
@@ -77,17 +72,13 @@ class Metric:
         return event
 
 
-class EventConstructException(Exception):
-    pass
-
-
 def send_request(batch: list, logger: logging.Logger, token: str, base_url: str = 'https://app.anodot.com'):
     if len(batch) == 0:
         logger.info('Received empty batch')
         return
 
     try:
-        logger.debug(f'Sending batch: {str(batch)}')
+        logger.debug(f'Sending batch example: {str(batch[:MAX_BATCH_DEBUG_OUTPUT])}')
         response = requests.post(urllib.parse.urljoin(base_url, '/api/v1/metrics'),
                                  params={'token': token, 'protocol': 'anodot20'},
                                  json=batch)
