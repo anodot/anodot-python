@@ -4,6 +4,7 @@ import requests
 import sys
 import urllib.parse
 
+from enum import Enum
 from typing import Iterable
 
 BATCH_SIZE = 1000
@@ -30,10 +31,15 @@ def process_tags(tags: dict):
         tags_result[replace_illegal_chars(name)] = [replace_illegal_chars(str(val)) for val in vals]
 
 
-class Event:
+class TargetType(Enum):
+    GAUGE = 'gauge'
+    COUNTER = 'counter'
+
+
+class Metric:
     def __init__(self, what: str,
                  value,
-                 target_type: str,
+                 target_type: TargetType,
                  timestamp: int,
                  dimensions: dict = None,
                  tags: dict = None,
@@ -42,16 +48,13 @@ class Event:
         try:
             self.what = replace_illegal_chars(str(what))
             self.value = float(value)
+            self.target_type = TargetType(target_type).value
             self.timestamp = int(timestamp)
             self.ver = int(version)
             self.dimensions = process_dimensions(dimensions)
             self.tags = process_tags(tags)
         except ValueError as e:
             raise EventConstructException(e)
-
-        if target_type not in ['counter', 'gauge']:
-            raise EventConstructException('target_type should be counter or gauge')
-        self.target_type = target_type
 
     def to_dict(self):
         event = {
@@ -106,7 +109,7 @@ def get_default_logger(level=logging.INFO):
 default_logger = get_default_logger()
 
 
-def send(data: Iterable[Event], token: str, logger: logging.Logger = None, base_url: str = 'https://app.anodot.com'):
+def send(data: Iterable[Metric], token: str, logger: logging.Logger = None, base_url: str = 'https://app.anodot.com'):
     if not logger:
         logger = default_logger
 
