@@ -54,6 +54,16 @@ class Metric:
                  dimensions: dict = None,
                  tags: dict = None,
                  version: int = 1):
+        """
+
+        :param what: Name of your measurement
+        :param value: Measurement value
+        :param target_type: gauge (average aggregation) or counter (sum aggregation).
+        :param timestamp: datetime object
+        :param dimensions:
+        :param tags:
+        :param version: Metric version. (Change in case you want to create new metric)
+        """
 
         self.what = replace_illegal_chars(str(what))
         self.value = float(value)
@@ -113,6 +123,14 @@ default_logger = get_default_logger()
 
 
 def send(data: Iterable[Metric], token: str, logger: logging.Logger = None, base_url: str = 'https://app.anodot.com'):
+    """
+
+    :param data: List of Metric objects
+    :param token: Data collection token (https://support.anodot.com/hc/en-us/articles/360002631114#DataCollectionKey)
+    :param logger: Logger object, if empty default_logger is used
+    :param base_url: Base url for Anodot api
+    :return:
+    """
     if not logger:
         logger = default_logger
 
