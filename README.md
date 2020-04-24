@@ -1,3 +1,7 @@
+[![Latest Release](https://img.shields.io/github/release/anodot/anodot-python.svg)](https://github.com/anodot/anodot-python/releases/latest)
+[![Python versions](https://img.shields.io/pypi/pyversions/python-anodot)](https://pypi.org/project/python-anodot/)
+
+
 # Anodot API python package
 
 Install:
