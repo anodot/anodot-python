@@ -26,7 +26,7 @@ VERSION = 1
 
 events = []
 for event in data:
-    timestamp = datetime.strptime('2020-01-01 00:00:00', '%Y-%m-%d %H:%M:%S')
+    timestamp = datetime.strptime(event['time'], '%Y-%m-%d %H:%M:%S')
     events.append(metric.Metric(what='packets_in',
                                 value=event['packets_in'],
                                 target_type=metric.TargetType.GAUGE,
