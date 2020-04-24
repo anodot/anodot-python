@@ -89,25 +89,31 @@ class Metric:
         return event
 
 
-def send_request(batch: list, logger: logging.Logger, token: str, base_url: str = 'https://app.anodot.com'):
+def send_request(batch: list,
+                 logger: logging.Logger,
+                 token: str,
+                 base_url: str = 'https://app.anodot.com',
+                 dry_run: bool = False):
     if len(batch) == 0:
         logger.info('Received empty batch')
         return
 
     try:
         logger.debug(f'Sending batch example: {str(batch[:MAX_BATCH_DEBUG_OUTPUT])}')
-        response = requests.post(urllib.parse.urljoin(base_url, '/api/v1/metrics'),
-                                 params={'token': token, 'protocol': 'anodot20'},
-                                 json=batch)
+        if not dry_run:
+            response = requests.post(urllib.parse.urljoin(base_url, '/api/v1/metrics'),
+                                     params={'token': token, 'protocol': 'anodot20'},
+                                     json=batch)
+            response_data = response.json()
+            for item in response_data['errors']:
+                msg = f'{item["error"]} - {item["description"]}'
+                if 'index' in item:
+                    msg += ' - Failed sample: ' + json.dumps(batch[int(item['index'])])
+                logger.error(msg)
         logger.info(f'Sent {len(batch)} records')
-        response_data = response.json()
-        for item in response_data['errors']:
-            msg = f'{item["error"]} - {item["description"]}'
-            if 'index' in item:
-                msg += ' - Failed sample: ' + json.dumps(batch[int(item['index'])])
-            logger.error(msg)
     except requests.HTTPError as e:
         logger.exception(e)
+        raise
 
 
 def get_default_logger(level=logging.INFO):
@@ -122,23 +128,29 @@ def get_default_logger(level=logging.INFO):
 default_logger = get_default_logger()
 
 
-def send(data: Iterable[Metric], token: str, logger: logging.Logger = None, base_url: str = 'https://app.anodot.com'):
+def send(data: Iterable[Metric],
+         token: str,
+         logger: logging.Logger = None,
+         base_url: str = 'https://app.anodot.com',
+         dry_run: bool = False):
     """
 
     :param data: List of Metric objects
     :param token: Data collection token (https://support.anodot.com/hc/en-us/articles/360002631114#DataCollectionKey)
     :param logger: Logger object, if empty default_logger is used
     :param base_url: Base url for Anodot api
+    :param dry_run:
     :return:
     """
     if not logger:
         logger = default_logger
 
-    batch = []
-    for item in data:
-        batch.append(item.to_dict())
-        if len(batch) == BATCH_SIZE:
-            send_request(batch, logger, token, base_url)
-            batch = []
+    with requests.Session() as s:
+        batch = []
+        for item in data:
+            batch.append(item.to_dict())
+            if len(batch) == BATCH_SIZE:
+                send_request(batch, logger, token, base_url, dry_run)
+                batch = []
 
-    send_request(batch, logger, token, base_url)
+        send_request(batch, logger, token, base_url, dry_run)
