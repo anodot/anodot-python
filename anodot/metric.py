@@ -89,6 +89,10 @@ class Metric:
         return event
 
 
+class AnodotAPIResponseException(Exception):
+    pass
+
+
 def send_request(batch: list,
                  logger: logging.Logger,
                  token: str,
@@ -98,23 +102,23 @@ def send_request(batch: list,
         logger.info('Received empty batch')
         return
 
-    try:
-        logger.debug(f'Sending batch example: {str(batch[:MAX_BATCH_DEBUG_OUTPUT])}')
-        if not dry_run:
-            response = requests.post(urllib.parse.urljoin(base_url, '/api/v1/metrics'),
-                                     params={'token': token, 'protocol': 'anodot20'},
-                                     json=batch)
-            response.raise_for_status()
-            response_data = response.json()
-            for item in response_data['errors']:
-                msg = f'{item["error"]} - {item["description"]}'
-                if 'index' in item:
-                    msg += ' - Failed sample: ' + json.dumps(batch[int(item['index'])])
-                logger.error(msg)
-        logger.info(f'Sent {len(batch)} records')
-    except requests.HTTPError as e:
-        logger.exception(e)
-        raise
+    logger.debug(f'Sending batch example: {str(batch[:MAX_BATCH_DEBUG_OUTPUT])}')
+    if not dry_run:
+        response = requests.post(urllib.parse.urljoin(base_url, '/api/v1/metrics'),
+                                 params={'token': token, 'protocol': 'anodot20'},
+                                 json=batch)
+        response.raise_for_status()
+        response_data = response.json()
+        messages = []
+        for item in response_data['errors']:
+            msg = f'{item["error"]} - {item["description"]}'
+            if 'index' in item:
+                msg += ' - Failed sample: ' + json.dumps(batch[int(item['index'])])
+            messages.append(msg)
+        if messages:
+            raise AnodotAPIResponseException('\n'.join(messages))
+
+    logger.info(f'Sent {len(batch)} records')
 
 
 def get_default_logger(level=logging.INFO):
