@@ -50,6 +50,10 @@ class MockResponse:
             ]
         }
 
+    @staticmethod
+    def raise_for_status():
+        return True
+
 
 def test_send_request(monkeypatch):
     def mock_post(*args, **kwargs):

@@ -104,6 +104,7 @@ def send_request(batch: list,
             response = requests.post(urllib.parse.urljoin(base_url, '/api/v1/metrics'),
                                      params={'token': token, 'protocol': 'anodot20'},
                                      json=batch)
+            response.raise_for_status()
             response_data = response.json()
             for item in response_data['errors']:
                 msg = f'{item["error"]} - {item["description"]}'
