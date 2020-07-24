@@ -2,7 +2,6 @@ import json
 import logging
 import requests
 import sys
-import time
 import urllib.parse
 
 from datetime import datetime
