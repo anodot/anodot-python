@@ -1,44 +1,7 @@
-import json
-import logging
-import requests
-import sys
-import time
-import urllib.parse
-
 from datetime import datetime
 from enum import Enum
+from .tools import replace_illegal_chars, process_tags, process_dimensions, process_measurements
 from typing import Iterable
-
-BATCH_SIZE = 1000
-MAX_BATCH_DEBUG_OUTPUT = 10
-
-
-def replace_illegal_chars(user_string: str):
-    return user_string.replace(' ', '_').replace('.', '_')
-
-
-def process_dimensions(dimensions: dict):
-    if not dimensions:
-        return {}
-
-    if type(dimensions) is not dict:
-        raise ValueError('dimensions should be dict')
-    return {replace_illegal_chars(name): replace_illegal_chars(str(val)) for name, val in dimensions.items()}
-
-
-def process_tags(tags: dict):
-    if not tags:
-        return {}
-
-    if type(tags) is not dict:
-        raise ValueError('tags should be dict')
-
-    tags_result = {}
-    for name, vals in tags.items():
-        if type(vals) is not list:
-            raise ValueError('Wrong tags format')
-        tags_result[replace_illegal_chars(name)] = [replace_illegal_chars(str(val)) for val in vals]
-    return tags_result
 
 
 class TargetType(Enum):
@@ -47,6 +10,11 @@ class TargetType(Enum):
 
 
 class Metric:
+    def to_dict(self) -> dict:
+        pass
+
+
+class Metric20(Metric):
     def __init__(self, what: str,
                  value: float,
                  target_type: TargetType,
@@ -89,73 +57,98 @@ class Metric:
         return event
 
 
-class AnodotAPIResponseException(Exception):
-    pass
+class Aggregation(Enum):
+    AVERAGE = 'average'
+    SUM = 'sum'
 
 
-def send_request(batch: list,
-                 logger: logging.Logger,
-                 token: str,
-                 base_url: str = 'https://app.anodot.com',
-                 dry_run: bool = False):
-    if len(batch) == 0:
-        logger.info('Received empty batch')
-        return
-
-    logger.debug(f'Sending batch example: {str(batch[:MAX_BATCH_DEBUG_OUTPUT])}')
-    if not dry_run:
-        response = requests.post(urllib.parse.urljoin(base_url, '/api/v1/metrics'),
-                                 params={'token': token, 'protocol': 'anodot20'},
-                                 json=batch)
-        response.raise_for_status()
-        response_data = response.json()
-        messages = []
-        for item in response_data['errors']:
-            msg = f'{item["error"]} - {item["description"]}'
-            if 'index' in item:
-                msg += ' - Failed sample: ' + json.dumps(batch[int(item['index'])])
-            messages.append(msg)
-        if messages:
-            raise AnodotAPIResponseException('\n'.join(messages))
-
-    logger.info(f'Sent {len(batch)} records')
+class MissingDimPolicyAction(Enum):
+    FILL = 'fill'
+    FAIL = 'fail'
 
 
-def get_default_logger(level=logging.INFO):
-    logger = logging.getLogger(__name__)
-    logger.setLevel(level)
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-    logger.addHandler(handler)
-    return logger
+class MissingDimPolicy:
+    def __init__(self, action: MissingDimPolicyAction, fill: str = None):
+        self.action = action
+        self.fill = fill
+
+    def to_dict(self):
+        val = {'action': self.action.value}
+        if self.action == MissingDimPolicyAction.FILL:
+            val['fill'] = self.fill
+
+        return val
 
 
-default_logger = get_default_logger()
+class Measurement:
+    def __init__(self, name: str, aggregation: Aggregation, units: str = None):
+        self.name = name
+        self.aggregation = aggregation
+        self.units = units
+
+    def to_dict(self):
+        val = {'aggregation': self.aggregation.value, 'countBy': 'none'}
+        if self.units:
+            val['units'] = self.units
+
+        return val
 
 
-def send(data: Iterable[Metric],
-         token: str,
-         logger: logging.Logger = None,
-         base_url: str = 'https://app.anodot.com',
-         dry_run: bool = False):
-    """
+class Schema:
+    def __init__(self, name: str,
+                 dimensions: Iterable,
+                 measurements: Iterable[Measurement],
+                 missing_dim_policy: MissingDimPolicy,
+                 version: int = 1):
+        self.name = name
+        self.dimensions = dimensions
+        self.measurements = measurements
+        self.missing_dim_policy = missing_dim_policy
+        self.version = version
 
-    :param data: List of Metric objects
-    :param token: Data collection token (https://support.anodot.com/hc/en-us/articles/360002631114#DataCollectionKey)
-    :param logger: Logger object, if empty default_logger is used
-    :param base_url: Base url for Anodot api
-    :param dry_run:
-    :return:
-    """
-    if not logger:
-        logger = default_logger
+    def to_dict(self):
+        return {
+            'version': self.version,
+            'name': self.name,
+            'dimensions': [replace_illegal_chars(d) for d in self.dimensions],
+            'measurements': {replace_illegal_chars(s.name): s.to_dict() for s in self.measurements},
+            'missingDimPolicy': self.missing_dim_policy.to_dict()
+        }
 
-    with requests.Session() as s:
-        batch = []
-        for item in data:
-            batch.append(item.to_dict())
-            if len(batch) == BATCH_SIZE:
-                send_request(batch, logger, token, base_url, dry_run)
-                batch = []
 
-        send_request(batch, logger, token, base_url, dry_run)
+class Metric30(Metric):
+    def __init__(self, schema_id: str,
+                 timestamp: datetime,
+                 measurements: dict,
+                 dimensions: dict = None,
+                 tags: dict = None):
+        self.schema_id = schema_id
+        self.timestamp = timestamp.timestamp()
+        self.measurements = process_measurements(measurements)
+        self.dimensions = process_dimensions(dimensions)
+        self.tags = process_tags(tags)
+
+    def to_dict(self):
+        event = {
+            'schemaId': self.schema_id,
+            'timestamp': self.timestamp,
+            'dimensions': self.dimensions,
+            'measurements': self.measurements
+        }
+
+        if self.tags:
+            event['tags'] = self.tags
+
+        return event
+
+
+class Watermark:
+    def __init__(self, schema_id: str, timestamp: datetime):
+        self.schema_id = schema_id
+        self.timestamp = timestamp.timestamp()
+
+    def to_dict(self):
+        return {
+            'schemaId': self.schema_id,
+            'timestamp': self.timestamp
+        }
