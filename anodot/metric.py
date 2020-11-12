@@ -40,6 +40,9 @@ class Metric20(Metric):
         self.ver = int(version)
         self.dimensions = process_dimensions(dimensions)
         self.tags = process_tags(tags)
+        
+    def __repr__(self):
+        return(str(self.__dict__))
 
     def to_dict(self):
         event = {
@@ -127,6 +130,9 @@ class Metric30(Metric):
         self.measurements = process_measurements(measurements)
         self.dimensions = process_dimensions(dimensions)
         self.tags = process_tags(tags)
+    
+    def __repr__(self):
+        return(str(self.__dict__))
 
     def to_dict(self):
         event = {
