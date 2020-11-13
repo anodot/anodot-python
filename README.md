@@ -13,8 +13,8 @@ pip install python-anodot
 
 #### Note:
 - All dots and spaces in measurement names and in dimensions are replaced with an underscore `_`
-- When you pass more than 1000 events to the `anodot.send` they are splitted to chucks before sending
-- Events shoud be passed sorted in by timestamp in ascending order
+- When you pass more than 1000 events to the `anodot.send` function they are splitted into chuncks before sending
+- Events shoud be sorted by timestamp in the ascending order
 
 
 #### Protocol 2.0
