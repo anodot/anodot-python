@@ -99,7 +99,7 @@ def send(data: Iterable[Metric],
                 _send_request(batch, logger, token, base_url, dry_run, protocol)
                 batch = []
 
-		# process any remaining items in batch	
+        # process any remaining items in batch	
         if batch:
             _send_request(batch, logger, token, base_url, dry_run, protocol)
 
