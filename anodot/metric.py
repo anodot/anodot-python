@@ -156,5 +156,5 @@ class Watermark:
     def to_dict(self):
         return {
             'schemaId': self.schema_id,
-            'timestamp': self.timestamp
+            'watermark': self.timestamp
         }
