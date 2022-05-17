@@ -9,9 +9,10 @@ Install:
 pip install python-anodot
 ```
 
-This package implements authentication and some of the endpoints from the [Anodot API](https://docs.anodot.com/#post-metrics)
 
 ### Posting metrics
+
+More about the flow and protocols you can read here [Posting metrics with Anodot API](https://docs.anodot.com/#post-metrics)
 
 #### Note:
 - All dots and spaces in measurement names and in dimensions are replaced with an underscore `_`
