@@ -9,6 +9,8 @@ Install:
 pip install python-anodot
 ```
 
+This package implements authentication and some of the endpoints from the [Anodot API](https://docs.anodot.com/#post-metrics)
+
 ### Posting metrics
 
 #### Note:
