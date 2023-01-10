@@ -6,7 +6,7 @@ import urllib.parse
 
 from enum import Enum
 from typing import Iterable
-from .metric import Metric, Watermark, Schema
+from .metric import Metric, Watermark, Schema, MissingDimPolicy, MissingDimPolicyAction
 
 BATCH_SIZE = 1000
 MAX_BATCH_DEBUG_OUTPUT = 10
@@ -25,23 +25,62 @@ _default_logger = _get_default_logger()
 
 
 class ApiClient:
-
     def __init__(self, access_key: str, proxies: dict = None, base_url='https://app.anodot.com'):
         self.access_key = access_key
         self.base_url = base_url
-        self.proxies = proxies if proxies else {}
+        self.proxies = proxies or {}
         self.session = requests.Session()
-        self.get_auth_token()
+        self.authenticate_session()
 
-    def get_auth_token(self):
-        auth_token = self.session.post(self.build_url('access-token'),
-                                       json={'refreshToken': self.access_key},
-                                       proxies=self.proxies)
+    def authenticate_session(self):
+        auth_token = self.session.post(
+            self.build_url('access-token'),
+            json={'refreshToken': self.access_key},
+            proxies=self.proxies,
+        )
         auth_token.raise_for_status()
         self.session.headers.update({'Authorization': 'Bearer ' + auth_token.text.replace('"', '')})
 
     def build_url(self, *args):
         return urllib.parse.urljoin(self.base_url, '/'.join(['/api/v2', *args]))
+
+    def get_all_schemas(self) -> list[Schema]:
+        try:
+            res = self.session.get(
+                self.build_url('stream-schemas', 'schemas'),
+                params={'excludeCubes': True},
+                proxies=self.proxies,
+            )
+            res.raise_for_status()
+
+            schemas = []
+            for schema in res.json():
+                s = schema['streamSchemaWrapper']['schema']
+                missing_dim_policy = MissingDimPolicy(
+                    MissingDimPolicyAction(s['missingDimPolicy']['action']),
+                    s['missingDimPolicy'].get('fill'),
+                )
+                schemas.append(Schema(
+                    name=s['name'],
+                    dimensions=s['dimensions'],
+                    measurements=s['measurements'],
+                    missing_dim_policy=missing_dim_policy,
+                    version=s.get('version', 1),
+                ))
+
+            return schemas
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                return self._get_schemas_old_api()
+            raise
+
+    def _get_schemas_old_api(self):
+        """
+        Used for old anodot api versions (for on-prem)
+        """
+        return self.session.get(
+            self.build_url('stream-schemas'), params={'excludeCubes': True}, proxies=self.proxies
+        ).json()
 
     def create_schema(self, schema: Schema):
         res = self.session.post(self.build_url('stream-schemas'), json=schema.to_dict(), proxies=self.proxies)
