@@ -5,7 +5,7 @@ import sys
 import urllib.parse
 
 from enum import Enum
-from typing import Iterable
+from typing import Iterable, List
 from .metric import Metric, Watermark, Schema, MissingDimPolicy, MissingDimPolicyAction
 
 BATCH_SIZE = 1000
@@ -44,7 +44,7 @@ class ApiClient:
     def build_url(self, *args):
         return urllib.parse.urljoin(self.base_url, '/'.join(['/api/v2', *args]))
 
-    def get_all_schemas(self) -> list[Schema]:
+    def get_all_schemas(self) -> List[Schema]:
         try:
             res = self.session.get(
                 self.build_url('stream-schemas', 'schemas'),
