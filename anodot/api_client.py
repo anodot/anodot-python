@@ -45,42 +45,29 @@ class ApiClient:
         return urllib.parse.urljoin(self.base_url, '/'.join(['/api/v2', *args]))
 
     def get_all_schemas(self) -> List[Schema]:
-        try:
-            res = self.session.get(
-                self.build_url('stream-schemas', 'schemas'),
-                params={'excludeCubes': True},
-                proxies=self.proxies,
+        res = self.session.get(
+            self.build_url('stream-schemas', 'schemas'),
+            params={'excludeCubes': True},
+            proxies=self.proxies,
+        )
+        res.raise_for_status()
+
+        schemas = []
+        for schema in res.json():
+            s = schema['streamSchemaWrapper']['schema']
+            missing_dim_policy = MissingDimPolicy(
+                MissingDimPolicyAction(s['missingDimPolicy']['action']),
+                s['missingDimPolicy'].get('fill'),
             )
-            res.raise_for_status()
+            schemas.append(Schema(
+                name=s['name'],
+                dimensions=s['dimensions'],
+                measurements=s['measurements'],
+                missing_dim_policy=missing_dim_policy,
+                version=s.get('version', 1),
+            ))
 
-            schemas = []
-            for schema in res.json():
-                s = schema['streamSchemaWrapper']['schema']
-                missing_dim_policy = MissingDimPolicy(
-                    MissingDimPolicyAction(s['missingDimPolicy']['action']),
-                    s['missingDimPolicy'].get('fill'),
-                )
-                schemas.append(Schema(
-                    name=s['name'],
-                    dimensions=s['dimensions'],
-                    measurements=s['measurements'],
-                    missing_dim_policy=missing_dim_policy,
-                    version=s.get('version', 1),
-                ))
-
-            return schemas
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
-                return self._get_schemas_old_api()
-            raise
-
-    def _get_schemas_old_api(self):
-        """
-        Used for old anodot api versions (for on-prem)
-        """
-        return self.session.get(
-            self.build_url('stream-schemas'), params={'excludeCubes': True}, proxies=self.proxies
-        ).json()
+        return schemas
 
     def create_schema(self, schema: Schema):
         res = self.session.post(self.build_url('stream-schemas'), json=schema.to_dict(), proxies=self.proxies)
