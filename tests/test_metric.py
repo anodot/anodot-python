@@ -46,6 +46,7 @@ def test_metric20_to_dict(what, value, target_type, timestamp, dimensions, tags,
      anodot.MissingDimPolicy(action=anodot.MissingDimPolicyAction.FILL, fill='tttt'),
      3,
      {
+         'id': None,
          'version': 3,
          'name': 'test1',
          'dimensions': ['te__st', 'test1__'],

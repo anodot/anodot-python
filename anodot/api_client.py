@@ -5,8 +5,8 @@ import sys
 import urllib.parse
 
 from enum import Enum
-from typing import Iterable, List
-from .metric import Metric, Watermark, Schema, MissingDimPolicy, MissingDimPolicyAction
+from typing import Iterable, List, Optional
+from .metric import Metric, Watermark, Schema, MissingDimPolicy, MissingDimPolicyAction, Measurement, Aggregation
 
 BATCH_SIZE = 1000
 MAX_BATCH_DEBUG_OUTPUT = 10
@@ -62,19 +62,33 @@ class ApiClient:
             schemas.append(Schema(
                 name=s['name'],
                 dimensions=s['dimensions'],
-                measurements=s['measurements'],
+                measurements=[
+                    Measurement(name, Aggregation(measurement['aggregation']))
+                    for name, measurement in s['measurements'].items()
+                ],
                 missing_dim_policy=missing_dim_policy,
                 version=s.get('version', 1),
+                id_=s['id'],
             ))
 
         return schemas
 
-    def create_schema(self, schema: Schema):
+    def find_by_name(self, schema_name: str) -> Optional[Schema]:
+        return next(
+            (
+                schema
+                for schema in self.get_all_schemas()
+                if schema.name == schema_name
+            ),
+            None,
+        )
+
+    def create_schema(self, schema: Schema) -> dict:
         res = self.session.post(self.build_url('stream-schemas'), json=schema.to_dict(), proxies=self.proxies)
         res.raise_for_status()
         return res.json()
 
-    def delete_schema(self, schema_id):
+    def delete_schema(self, schema_id: str):
         res = self.session.delete(self.build_url('stream-schemas', schema_id), proxies=self.proxies)
         res.raise_for_status()
         return res.json()
@@ -117,15 +131,14 @@ def send(data: Iterable[Metric],
     if not logger:
         logger = _default_logger
 
-    with requests.Session() as s:
-        batch = []
-        for item in data:
-            batch.append(item.to_dict())
-            if len(batch) == BATCH_SIZE:
-                _send_request(batch, logger, token, base_url, dry_run, protocol)
-                batch = []
+    batch = []
+    for item in data:
+        batch.append(item.to_dict())
+        if len(batch) == BATCH_SIZE:
+            _send_request(batch, logger, token, base_url, dry_run, protocol)
+            batch = []
 
-        _send_request(batch, logger, token, base_url, dry_run, protocol)
+    _send_request(batch, logger, token, base_url, dry_run, protocol)
 
 
 def send_watermark(watermark: Watermark,
