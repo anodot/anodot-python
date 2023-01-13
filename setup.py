@@ -22,5 +22,5 @@ setup(
     ],
     packages=find_packages(),
     install_requires=["requests"],
-    version='2.0.5'
+    version='2.0.6'
 )
