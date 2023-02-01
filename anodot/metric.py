@@ -70,6 +70,7 @@ class Aggregation(Enum):
 class MissingDimPolicyAction(Enum):
     FILL = 'fill'
     FAIL = 'fail'
+    IGNORE = 'ignore'
 
 
 class MissingDimPolicy:
